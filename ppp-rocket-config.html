@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Boom rocket stability – Ping Pong Parachute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF3EA; --sheet:#F7FAF4; --grid:#DCE7D5; --grid-strong:#C3D6B9;
+  --ink:#1F2E28; --ink-soft:#56695F; --line:#94AA9D;
+  --cg:#2C5AA6; --cp:#C23A2B; --ok:#2E7A45; --warn:#9E6410; --bad:#B0261D;
+  --body-fill:rgba(255,255,255,.62); --fin-fill:rgba(46,122,69,.20); --zone:rgba(194,58,43,.10);
+  --focus:#2C5AA6;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A17; --sheet:#18211D; --grid:#212D27; --grid-strong:#2B3B33;
+    --ink:#E2EBE5; --ink-soft:#9BAFA5; --line:#5D7268;
+    --cg:#8BAEEC; --cp:#F08474; --ok:#6CC28C; --warn:#E3AA4E; --bad:#F38A80;
+    --body-fill:rgba(24,33,29,.7); --fin-fill:rgba(108,194,140,.18); --zone:rgba(240,132,116,.12);
+    --focus:#8BAEEC;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A17; --sheet:#18211D; --grid:#212D27; --grid-strong:#2B3B33;
+  --ink:#E2EBE5; --ink-soft:#9BAFA5; --line:#5D7268;
+  --cg:#8BAEEC; --cp:#F08474; --ok:#6CC28C; --warn:#E3AA4E; --bad:#F38A80;
+  --body-fill:rgba(24,33,29,.7); --fin-fill:rgba(108,194,140,.18); --zone:rgba(240,132,116,.12);
+  --focus:#8BAEEC;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-size:16px; line-height:1.45;
+}
+.num{font-family:"Barlow Semi Condensed","Barlow",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 40px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:1.65rem;font-weight:600;line-height:1.15;margin:0;letter-spacing:-.01em}
+.sub{margin:6px 0 0;color:var(--ink-soft);max-width:62ch}
+button{
+  font:inherit;font-weight:500;color:var(--ink);background:transparent;
+  border:1.5px solid var(--ink);border-radius:999px;padding:7px 16px;cursor:pointer;
+}
+button:hover{background:var(--ink);color:var(--paper)}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.layout{display:grid;gap:20px}
+@media (min-width:1000px){
+  .layout{grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);align-items:start}
+  .left{position:sticky;top:calc(12px + env(safe-area-inset-top,0px))}
+}
+.sheet{
+  background-color:var(--sheet);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px),
+    linear-gradient(var(--grid-strong) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid-strong) 1px,transparent 1px);
+  background-size:10px 10px,10px 10px,50px 50px,50px 50px;
+  border:1px solid var(--grid-strong);border-radius:6px;padding:8px;
+}
+#drawing{display:block;width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.88rem;color:var(--ink-soft);padding:6px 4px 2px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.readouts{margin-top:16px;display:grid;gap:16px}
+.gauge h2,.stats h2{font-size:1rem;font-weight:600;margin:0 0 6px}
+.gauge .value{font-size:2rem;font-weight:600;line-height:1}
+.gauge .verdict{margin:4px 0 8px;font-weight:500}
+.bar{position:relative;height:16px;border-radius:3px;overflow:hidden;display:flex;border:1px solid var(--line)}
+.bar i{display:block;height:100%}
+.band{position:absolute;top:2px;bottom:2px;background:var(--ink);opacity:.22;border-radius:2px}
+.marker{position:absolute;top:-4px;width:3px;height:22px;background:var(--ink);border-radius:1px;transform:translateX(-1px)}
+.scale{position:relative;height:18px;font-size:.78rem;color:var(--ink-soft)}
+.scale span{position:absolute;transform:translateX(-50%);top:2px}
+.small{font-size:.86rem;color:var(--ink-soft);margin:6px 0 0}
+.stats dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0}
+.stats dt{color:var(--ink-soft)}
+.stats dd{margin:0;font-weight:500}
+.warnings{margin:0;padding-left:1.1em;color:var(--bad)}
+.warnings:empty{display:none}
+.controls{display:grid;gap:10px}
+details{background:var(--sheet);border:1px solid var(--grid-strong);border-radius:6px;padding:4px 14px}
+summary{cursor:pointer;font-weight:600;padding:8px 0;font-size:1.05rem}
+.ctrl{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;padding:7px 0;border-top:1px solid var(--grid)}
+.ctrl label{font-size:.95rem}
+.ctrl .unit{color:var(--ink-soft);font-size:.85rem;margin-left:4px}
+.ctrl input[type=number]{
+  width:5.4em;font:inherit;font-family:"Barlow Semi Condensed","Barlow",system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;color:var(--ink);background:var(--paper);
+  border:1px solid var(--line);border-radius:4px;padding:2px 6px;text-align:right;
+}
+.ctrl input[type=range]{grid-column:1 / -1;width:100%;accent-color:var(--ink);margin:2px 0 0}
+.ctrl .hint{grid-column:1 / -1;font-size:.8rem;color:var(--ink-soft)}
+.changed label{font-weight:600}
+.notes{margin-top:28px;max-width:78ch;color:var(--ink-soft);font-size:.93rem}
+.notes h2{color:var(--ink);font-size:1.05rem;font-weight:600;margin:0 0 6px}
+.notes p{margin:0 0 10px}
+.panel{background:var(--sheet);border:1px solid var(--grid-strong);border-radius:6px;padding:12px 14px 14px}
+.panel h2{font-size:1.05rem;font-weight:600;margin:0 0 8px}
+.panel label{font-size:.95rem;display:block;margin-bottom:4px}
+.panel input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.btnrow button{padding:6px 14px;font-size:.95rem}
+.status{font-size:.88rem;color:var(--ink-soft);margin:8px 0 0;min-height:1.2em}
+.status.err{color:var(--bad)}
+.panel details{background:transparent;border:none;padding:0;margin-top:10px}
+.panel summary{font-size:.95rem;font-weight:500;padding:4px 0}
+.panel textarea{width:100%;min-height:9em;font:13px/1.4 "Barlow Semi Condensed","Barlow",system-ui,sans-serif;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:6px 8px;margin-top:6px}
+.panel.dragover{outline:2px dashed var(--focus);outline-offset:2px}
+.fincad{margin-top:32px}
+.fincad h2{font-size:1.35rem;font-weight:600;margin:0 0 6px}
+.fincad .lead{color:var(--ink-soft);margin:0 0 12px;max-width:72ch}
+.fingrid{display:grid;gap:16px}
+@media (min-width:1000px){.fingrid{grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);align-items:start}}
+#finSvg{display:block;width:100%;height:auto;font-family:"Barlow Semi Condensed","Barlow",system-ui,sans-serif}
+.coords{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.coords th,.coords td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--grid-strong)}
+.coords th{font-weight:600;font-size:.92rem;color:var(--ink-soft)}
+.coords td.n{text-align:right;font-family:"Barlow Semi Condensed","Barlow",system-ui,sans-serif}
+.coords th.n{text-align:right}
+.facts{margin:12px 0 0;padding-left:1.1em}
+.facts li{margin:3px 0}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Boom rocket stability</h1>
+      <p class="sub">Move any length or mass and the drawing, CG, CP and stability margin update. The starting values are the recommended design.</p>
+    </div>
+    <button id="reset" type="button">Reset to recommended</button>
+  </header>
+
+  <div class="layout">
+    <div class="left">
+      <section class="sheet" aria-label="Scale drawing of the rocket">
+        <svg id="drawing" role="img" aria-label="Side view of the rocket with CG, CP and fin sweep circle"></svg>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--cg)"></i>CG</span>
+          <span><i class="dot" style="background:var(--cp)"></i>CP</span>
+          <span>Dashed circle: path of the fin tips when the rocket flips at apogee</span>
+        </div>
+      </section>
+
+      <section class="readouts">
+        <div class="gauge">
+          <h2>Stability margin</h2>
+          <div><span class="value num" id="mVal">–</span> <span class="num" id="mUnit">calibers</span></div>
+          <p class="verdict" id="mVerdict"></p>
+          <div class="bar" id="mBar" aria-hidden="true"></div>
+          <div class="scale" id="mScale" aria-hidden="true"></div>
+          <p class="small" id="mRange"></p>
+        </div>
+        <div class="gauge">
+          <h2>Fin clearance at apogee</h2>
+          <div><span class="value num" id="sVal">–</span> <span>× fin tip distance</span></div>
+          <p class="verdict" id="sVerdict"></p>
+          <div class="bar" id="sBar" aria-hidden="true"></div>
+          <div class="scale" id="sScale" aria-hidden="true"></div>
+        </div>
+        <div class="stats">
+          <h2>Numbers</h2>
+          <dl class="num" id="stats"></dl>
+        </div>
+        <ul class="warnings" id="warnings" aria-live="polite"></ul>
+      </section>
+    </div>
+
+    <section class="controls" id="controls" aria-label="Design inputs">
+      <div class="panel" id="designPanel">
+        <h2>Saved designs</h2>
+        <label for="designName">Design name</label>
+        <input type="text" id="designName" value="Recommended design" maxlength="80">
+        <div class="btnrow">
+          <button type="button" id="exportBtn" hidden>Export settings (.json)</button>
+          <button type="button" id="loadBtn">Load settings</button>
+          <input type="file" id="loadFile" accept=".json,application/json" hidden>
+        </div>
+        <p class="status" id="designStatus" aria-live="polite">Export a design to keep it, and load it back later. You can also drop a .json file here.</p>
+        <details id="textOpt">
+          <summary>Copy or paste settings as text</summary>
+          <textarea id="jsonText" spellcheck="false" aria-label="Design settings as JSON text"></textarea>
+          <div class="btnrow">
+            <button type="button" id="showJson">Show current settings</button>
+            <button type="button" id="loadJson">Load from text</button>
+          </div>
+        </details>
+      </div>
+    </section>
+  </div>
+
+  <section class="notes">
+    <h2>How the numbers are calculated</h2>
+    <p>Distances are measured from the front rim of the cap toward the bottle opening. The CP uses the Barrowman method with the bottle diameter as the reference. The CG is the mass-weighted average of every part at the positions shown in the drawing.</p>
+    <p>Two effects are uncertain, so they have their own settings. The cap's tapered back and the bottle shoulder both produce a backward side force in theory, but the flow separates behind them, so the real force is smaller. A factor of 1 is full Barrowman, 0 ignores it. The margin range below the main value shows the result for a cap factor from 0 to 1.</p>
+    <p>Fin clearance compares the payload's distance from the CG with the distance of the farthest fin point from the CG. When the rocket flips about its CG at apogee, the fins sweep a circle of that radius. Above about 1.3 the payload starts clear of that circle.</p>
+    <p>Confirm the final design with a swing test, because these are estimates.</p>
+  </section>
+  <section class="fincad" aria-label="Fin shape for CAD">
+    <h2>Fin shape for CAD</h2>
+    <p class="lead">One fin, drawn from the current settings. The root edge sits on the bottle surface, the leading edge faces the nose. Corner coordinates are in the table, ready to type into a CAD sketch.</p>
+    <div class="fingrid">
+      <div class="sheet"><svg id="finSvg" role="img" aria-label="Dimensioned drawing of one fin"></svg></div>
+      <div>
+        <table class="coords" id="finTable"></table>
+        <ul class="facts" id="finFacts"></ul>
+        <div class="btnrow"><button type="button" id="finSvgBtn" hidden>Download fin outline (SVG, 1:1 in mm)</button></div>
+        <p class="status" id="finStatus" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const DEFAULTS = {
+  N:4, Cr:65, Ct:50, sweep:15, span:85, teAbove:66, finT:1.0, sleeveMass:19.5,
+  boomExposed:200, boomD:9.5, boomLin:0.43, capSocket:15, adSocket:25,
+  capD:70, capLen:43.2, capTail:26.5, bossD:17,
+  capMass:20, clay:0, canopy:2.5, ball:2.7, adMass:27, bottleMass:32, tape:5,
+  adBoss:8, adCone:55, adSkirt:25,
+  D:83, bottleLen:247, shoulderStart:64, ringH:23.4, neckD:27,
+  kCap:0.5, kSh:1.0
+};
+
+const GROUPS = [
+  {title:"Fins", open:true, items:[
+    ["N","Number of fins",3,4,1,""],
+    ["span","Span (from bottle surface)",30,150,1,"mm"],
+    ["Cr","Root chord",30,120,1,"mm"],
+    ["Ct","Tip chord",0,100,1,"mm"],
+    ["sweep","Leading edge sweep",-20,80,1,"mm","Root chord minus tip chord keeps the trailing edge straight"],
+    ["teAbove","Trailing edge above opening",40,150,1,"mm","Rule 3.e: at least 50 mm. Keep it above the start of the straight section."],
+    ["finT","Fin thickness",0.6,2.5,0.1,"mm"],
+    ["sleeveMass","Sleeve and collars mass",5,40,0.5,"g"]
+  ]},
+  {title:"Boom and cap", open:true, items:[
+    ["boomExposed","Exposed boom length",0,350,5,"mm"],
+    ["boomD","Boom diameter",6,16,0.5,"mm"],
+    ["boomLin","Boom mass per cm",0.1,1.2,0.01,"g/cm","3/8 in pine or poplar dowel is about 0.43"],
+    ["capD","Cap diameter",45,100,1,"mm"],
+    ["capLen","Cap length",25,70,0.5,"mm"],
+    ["capTail","Cap tapered back length",5,45,0.5,"mm"],
+    ["bossD","Socket boss diameter",12,25,0.5,"mm"],
+    ["capSocket","Socket depth in cap",5,30,1,"mm"],
+    ["adSocket","Socket depth in adapter",10,40,1,"mm"]
+  ]},
+  {title:"Masses", open:true, items:[
+    ["capMass","Cap (printed)",5,80,0.5,"g"],
+    ["clay","Extra clay in cap",0,60,0.5,"g"],
+    ["canopy","Packed canopy",0,10,0.1,"g"],
+    ["ball","Ping pong ball",2.5,3,0.1,"g"],
+    ["adMass","Boom adapter",10,50,0.5,"g"],
+    ["bottleMass","Empty bottle",20,50,0.5,"g"],
+    ["tape","Tape",0,20,0.5,"g"]
+  ]},
+  {title:"Adapter", open:false, items:[
+    ["adBoss","Boss length",0,20,0.5,"mm"],
+    ["adCone","Cone length",20,120,1,"mm"],
+    ["adSkirt","Skirt length",10,50,1,"mm"]
+  ]},
+  {title:"Bottle", open:false, items:[
+    ["D","Bottle diameter",70,100,0.5,"mm"],
+    ["bottleLen","Length, base to opening",180,300,1,"mm"],
+    ["shoulderStart","Straight section starts above opening",30,90,1,"mm"],
+    ["ringH","Support ring above opening",10,25,0.5,"mm"],
+    ["neckD","Neck diameter",20,30,0.5,"mm"]
+  ]},
+  {title:"Aerodynamic assumptions", open:false, items:[
+    ["kCap","Cap back side-force factor",0,1,0.05,"","0 ignores it, 1 is full Barrowman"],
+    ["kSh","Bottle shoulder side-force factor",0,1,0.05,"","0 ignores it, 1 is full Barrowman"]
+  ]}
+];
+
+const P = Object.assign({}, DEFAULTS);
+const RHO = 1.27; // PETG g/cm3
+
+function trans(d1, d2, x0, len, D, k){
+  // Barrowman conical transition from diameter d1 (front) to d2 (back)
+  const cn = k * 2 * ((d2/D)**2 - (d1/D)**2);
+  const r = d1/d2;
+  const x = (Math.abs(1 - r*r) < 1e-9) ? x0 + len/2 : x0 + len/3 * (1 + (1 - r)/(1 - r*r));
+  return [cn, x];
+}
+
+function compute(p, kCapOverride){
+  const D = p.D, R = D/2, dSkirt = D + 2.9;
+  const kCap = (kCapOverride === undefined) ? p.kCap : kCapOverride;
+  const xBall = -2.3;
+  const tailStart = p.capLen - p.capTail;
+  const xA = p.capLen + p.boomExposed;
+  const xBase = xA + p.adBoss + p.adCone;
+  const xOpen = xBase + p.bottleLen;
+  const xTE = xOpen - p.teAbove;
+  const xLE = xTE - p.Cr;
+  const s = p.span, Cr = p.Cr, Ct = Math.max(p.Ct, 0.001), Xr = p.sweep;
+
+  // ---- CP (Barrowman) ----
+  const parts = [];
+  parts.push([2 * (p.capD/D)**2, 2]);                                   // cap front
+  parts.push(trans(p.capD, p.bossD, tailStart, p.capTail, D, kCap));    // cap tapered back
+  parts.push([2 * ((p.boomD/D)**2 - (p.bossD/D)**2), p.capLen]);        // boss to boom
+  parts.push([2 * ((p.bossD/D)**2 - (p.boomD/D)**2), xA]);              // boom to adapter boss
+  parts.push(trans(p.bossD, dSkirt, xA + p.adBoss, p.adCone, D, 1));    // adapter cone
+  parts.push([2 * (1 - (dSkirt/D)**2), xBase + p.adSkirt]);             // skirt step
+  const Lt = p.shoulderStart - p.ringH;
+  parts.push(trans(D, p.neckD, xOpen - p.shoulderStart, Lt, D, p.kSh)); // bottle shoulder
+  const lf = Math.hypot(s, Xr + Ct/2 - Cr/2);
+  const cnf = (1 + R/(s + R)) * (4 * p.N * (s/D)**2) / (1 + Math.sqrt(1 + (2*lf/(Cr + Ct))**2));
+  const xf = xLE + Xr/3 * (Cr + 2*Ct)/(Cr + Ct) + (Cr + Ct - Cr*Ct/(Cr + Ct))/6;
+  parts.push([cnf, xf]);
+  let cnSum = 0, mom = 0;
+  parts.forEach(([c, x]) => { cnSum += c; mom += c * x; });
+  const cp = mom / cnSum;
+
+  // ---- masses ----
+  const boomTotal = p.capSocket + p.boomExposed + p.adSocket;
+  const boomStart = p.capLen - p.capSocket;
+  const mBoom = p.boomLin * boomTotal / 10;
+  const finArea = (Cr + Ct)/2 * s;
+  const mFins = p.N * finArea * p.finT * RHO / 1000;
+  const xFinCentroid = xLE + (Xr*(Cr + 2*Ct) + Cr*Cr + Cr*Ct + Ct*Ct) / (3*(Cr + Ct));
+  const mSleeve = p.sleeveMass * Cr/65;
+  const items = [
+    [p.ball, xBall],
+    [p.canopy, 15],
+    [p.capMass, 0.4 * p.capLen],
+    [p.clay, 0.4 * p.capLen],
+    [mBoom, boomStart + boomTotal/2],
+    [p.adMass, xBase - 13.9 * p.adCone/55],
+    [p.bottleMass, xBase + p.bottleLen/2],
+    [mSleeve, xTE - Cr/2],
+    [mFins, xFinCentroid],
+    [p.tape, xTE - Cr/2]
+  ];
+  let m = 0, mx = 0;
+  items.forEach(([a, x]) => { m += a; mx += a * x; });
+  const cg = mx / m;
+
+  // ---- fin clearance at apogee ----
+  const finPts = [[xLE + Xr, R + s], [xLE + Xr + Ct, R + s], [xTE, R]];
+  let dF = 0;
+  finPts.forEach(([x, y]) => { dF = Math.max(dF, Math.hypot(x - cg, y)); });
+  const dP = cg - xBall;
+
+  return {
+    cp, cg, cnSum, margin: (cp - cg)/D, marginMm: cp - cg, mass: m,
+    ratio: dP/dF, dF, dP, mFinCan: mSleeve + mFins, mBoom,
+    xBall, tailStart, xA, xBase, xOpen, xTE, xLE, dSkirt, R,
+    length: xOpen - (xBall - 20), finTipTE: xLE + Xr + Ct
+  };
+}
+
+// ---------- controls ----------
+const controlsEl = document.getElementById("controls");
+const inputs = {};
+function fmt(v, step){
+  const dec = step < 0.1 ? 2 : (step < 1 ? 1 : 0);
+  return Number(v).toFixed(dec);
+}
+GROUPS.forEach(g => {
+  const det = document.createElement("details");
+  if (g.open) det.open = true;
+  const sum = document.createElement("summary");
+  sum.textContent = g.title;
+  det.appendChild(sum);
+  g.items.forEach(([key, label, min, max, step, unit, hint]) => {
+    const row = document.createElement("div");
+    row.className = "ctrl";
+    const id = "in_" + key;
+    row.innerHTML =
+      `<label for="${id}">${label}</label>` +
+      `<span><input type="number" id="${id}n" min="${min}" max="${max}" step="${step}" aria-label="${label} value">` +
+      `<span class="unit">${unit}</span></span>` +
+      `<input type="range" id="${id}" min="${min}" max="${max}" step="${step}">` +
+      (hint ? `<span class="hint">${hint}</span>` : "");
+    det.appendChild(row);
+    const r = row.querySelector('input[type=range]');
+    const n = row.querySelector('input[type=number]');
+    inputs[key] = {r, n, row, step};
+    r.addEventListener("input", () => { P[key] = parseFloat(r.value); n.value = fmt(P[key], step); update(); });
+    n.addEventListener("change", () => {
+      let v = parseFloat(n.value);
+      if (isNaN(v)) v = P[key];
+      v = Math.min(max, Math.max(min, v));
+      P[key] = v; r.value = v; n.value = fmt(v, step); update();
+    });
+  });
+  controlsEl.appendChild(det);
+});
+function syncInputs(){
+  Object.keys(inputs).forEach(k => {
+    inputs[k].r.value = P[k];
+    inputs[k].n.value = fmt(P[k], inputs[k].step);
+  });
+}
+document.getElementById("reset").addEventListener("click", () => {
+  Object.assign(P, DEFAULTS); document.getElementById("designName").value = "Recommended design"; syncInputs(); update();
+});
+
+// ---------- gauges ----------
+function buildBar(el, zones, lo, hi){
+  el.innerHTML = zones.map(([a, b, c]) =>
+    `<i style="width:${(Math.min(b,hi) - Math.max(a,lo))/(hi - lo)*100}%;background:${c}"></i>`).join("") +
+    `<span class="band"></span><span class="marker"></span>`;
+}
+const M_LO = -0.5, M_HI = 1.5, S_LO = 0.5, S_HI = 2.0;
+const zoneM = [[-0.5,0,"color-mix(in srgb, var(--bad) 30%, transparent)"],[0,0.25,"color-mix(in srgb, var(--warn) 30%, transparent)"],[0.25,0.5,"color-mix(in srgb, var(--ok) 32%, transparent)"],[0.5,1.5,"color-mix(in srgb, var(--warn) 18%, transparent)"]];
+const zoneS = [[0.5,1.0,"color-mix(in srgb, var(--bad) 30%, transparent)"],[1.0,1.3,"color-mix(in srgb, var(--warn) 30%, transparent)"],[1.3,2.0,"color-mix(in srgb, var(--ok) 32%, transparent)"]];
+buildBar(document.getElementById("mBar"), zoneM, M_LO, M_HI);
+buildBar(document.getElementById("sBar"), zoneS, S_LO, S_HI);
+document.getElementById("mScale").innerHTML = [-0.5,0,0.25,0.5,1,1.5].map(v =>
+  `<span style="left:${(v - M_LO)/(M_HI - M_LO)*100}%">${v}</span>`).join("");
+document.getElementById("sScale").innerHTML = [0.5,1,1.3,2].map(v =>
+  `<span style="left:${(v - S_LO)/(S_HI - S_LO)*100}%">${v}</span>`).join("");
+function pct(v, lo, hi){ return Math.min(100, Math.max(0, (v - lo)/(hi - lo)*100)); }
+
+// ---------- drawing ----------
+const svg = document.getElementById("drawing");
+let lastVB = null;
+function draw(res){
+  const p = P, R = res.R, s = p.span;
+  const rCap = p.capD/2, rBoss = p.bossD/2, rBoom = p.boomD/2, rSk = res.dSkirt/2, rNeck = p.neckD/2;
+  const Y = Math.max(R + s, rCap, rSk, res.dF, 40) + 8;
+  const x0 = res.xBall - 20 - 25, x1 = res.xOpen + 25;
+  const top = -Y - 30, bottom = Y + 58;
+  const w = x1 - x0, h = bottom - top;
+  svg.setAttribute("viewBox", `${x0} ${top} ${w} ${h}`);
+  lastVB = w;
+  const px = svg.clientWidth || 600;
+  const k = w / px;                // mm per screen pixel
+  const fs = 12.5 * k, sw = 1.2 * k, swThin = 0.8 * k;
+
+  const xs = res.xOpen - p.shoulderStart, xe = res.xOpen - p.ringH, Lt = xe - xs;
+  const bottlePath =
+    `M${res.xBase},${-R} L${xs},${-R} C${xs + Lt*0.55},${-R} ${xe - Lt*0.25},${-rNeck} ${xe},${-rNeck} ` +
+    `L${res.xOpen},${-rNeck} L${res.xOpen},${rNeck} L${xe},${rNeck} ` +
+    `C${xe - Lt*0.25},${rNeck} ${xs + Lt*0.55},${R} ${xs},${R} L${res.xBase},${R} Z`;
+  const capPath =
+    `M2,${-rCap} L${res.tailStart},${-rCap} L${p.capLen},${-rBoss} L${p.capLen},${rBoss} ` +
+    `L${res.tailStart},${rCap} L2,${rCap} Q0,${rCap} 0,${rCap - 2} L0,${-rCap + 2} Q0,${-rCap} 2,${-rCap} Z`;
+  const adPath =
+    `M${res.xA},${-rBoss} L${res.xA + p.adBoss},${-rBoss} L${res.xBase},${-rSk} L${res.xBase + p.adSkirt},${-rSk} ` +
+    `L${res.xBase + p.adSkirt},${rSk} L${res.xBase},${rSk} L${res.xA + p.adBoss},${rBoss} L${res.xA},${rBoss} Z`;
+  const tipLE = res.xLE + p.sweep, tipTE = tipLE + p.Ct;
+  const finTop = `${res.xLE},${-R} ${tipLE},${-(R + s)} ${tipTE},${-(R + s)} ${res.xTE},${-R}`;
+  const finBot = `${res.xLE},${R} ${tipLE},${R + s} ${tipTE},${R + s} ${res.xTE},${R}`;
+
+  // ruler
+  let ruler = "";
+  const ry = Y + 30;
+  ruler += `<line x1="0" y1="${ry}" x2="${Math.ceil(res.xOpen/50)*50}" y2="${ry}" stroke="var(--line)" stroke-width="${swThin}"/>`;
+  for (let x = 0; x <= res.xOpen + 1; x += 10){
+    const big = x % 100 === 0, mid = x % 50 === 0;
+    const tl = big ? 7 : (mid ? 5 : 2.5);
+    ruler += `<line x1="${x}" y1="${ry}" x2="${x}" y2="${ry + tl*k*1.6}" stroke="var(--line)" stroke-width="${swThin}"/>`;
+    if (big) ruler += `<text x="${x}" y="${ry + 22*k}" font-size="${fs*0.85}" text-anchor="middle" fill="var(--ink-soft)">${x}</text>`;
+  }
+  ruler += `<text x="${x1 - 4*k}" y="${ry + 22*k}" font-size="${fs*0.85}" text-anchor="end" fill="var(--ink-soft)">mm from cap front</text>`;
+
+  const inside = res.dP < res.dF;
+  const cgCol = "var(--cg)", cpCol = "var(--cp)";
+  const ballFill = inside ? "color-mix(in srgb, var(--bad) 28%, var(--sheet))" : "var(--body-fill)";
+  const clr = res.ratio >= 1.3 ? "var(--ok)" : (res.ratio >= 1.0 ? "var(--warn)" : "var(--bad)");
+
+  const cgR = 6*k;
+  svg.innerHTML = `
+    <rect x="${res.xOpen - 50}" y="${-(R + 18)}" width="50" height="${2*(R + 18)}" fill="var(--zone)"/>
+    <text x="${res.xOpen - 25}" y="${-(R + 22)}" font-size="${fs*0.8}" text-anchor="middle" fill="var(--cp)">no-fin zone</text>
+    <circle cx="${res.cg}" cy="0" r="${res.dF}" fill="none" stroke="${clr}" stroke-width="${sw}" stroke-dasharray="${6*k} ${4*k}"/>
+    <path d="${bottlePath}" fill="var(--body-fill)" stroke="var(--ink-soft)" stroke-width="${sw}"/>
+    <rect x="${res.xLE}" y="${-(R + 1.2)}" width="${p.Cr}" height="${2*(R + 1.2)}" fill="none" stroke="var(--ok)" stroke-width="${swThin}"/>
+    <polygon points="${finTop}" fill="var(--fin-fill)" stroke="var(--ok)" stroke-width="${sw}"/>
+    <polygon points="${finBot}" fill="var(--fin-fill)" stroke="var(--ok)" stroke-width="${sw}"/>
+    <path d="${adPath}" fill="var(--body-fill)" stroke="var(--ink)" stroke-width="${sw}"/>
+    <rect x="${p.capLen}" y="${-rBoom}" width="${p.boomExposed}" height="${2*rBoom}" fill="var(--body-fill)" stroke="var(--ink)" stroke-width="${sw}"/>
+    <path d="${capPath}" fill="var(--body-fill)" stroke="var(--ink)" stroke-width="${sw}"/>
+    <circle cx="${res.xBall}" cy="0" r="20" fill="${ballFill}" stroke="var(--ink)" stroke-width="${sw}"/>
+    <line x1="${x0}" y1="0" x2="${x1}" y2="0" stroke="var(--line)" stroke-width="${swThin}" stroke-dasharray="${8*k} ${3*k} ${2*k} ${3*k}"/>
+    <line x1="${res.cg}" y1="${-Y - 10*k}" x2="${res.cg}" y2="0" stroke="${cgCol}" stroke-width="${swThin}" stroke-dasharray="${3*k} ${3*k}"/>
+    <line x1="${res.cp}" y1="0" x2="${res.cp}" y2="${Y + 6*k}" stroke="${cpCol}" stroke-width="${swThin}" stroke-dasharray="${3*k} ${3*k}"/>
+    <g transform="translate(${res.cg},0)">
+      <circle r="${cgR}" fill="var(--sheet)" stroke="${cgCol}" stroke-width="${sw}"/>
+      <path d="M0 0 L${cgR} 0 A${cgR} ${cgR} 0 0 1 0 ${cgR} Z" fill="${cgCol}"/>
+      <path d="M0 0 L${-cgR} 0 A${cgR} ${cgR} 0 0 1 0 ${-cgR} Z" fill="${cgCol}"/>
+    </g>
+    <circle cx="${res.cp}" cy="0" r="${cgR}" fill="var(--sheet)" stroke="${cpCol}" stroke-width="${sw}"/>
+    <circle cx="${res.cp}" cy="0" r="${2*k}" fill="${cpCol}"/>
+    <text x="${res.cg}" y="${-Y - 14*k}" font-size="${fs}" font-weight="600" text-anchor="middle" fill="${cgCol}">CG ${res.cg.toFixed(0)}</text>
+    <text x="${res.cp}" y="${Y + 18*k}" font-size="${fs}" font-weight="600" text-anchor="middle" fill="${cpCol}">CP ${res.cp.toFixed(0)}</text>
+    ${ruler}`;
+}
+
+// ---------- update ----------
+function verdictMargin(m){
+  if (m < 0) return ["Unstable: the CP is ahead of the CG.", "var(--bad)"];
+  if (m < 0.25) return ["Low: stable in theory, but little reserve.", "var(--warn)"];
+  if (m <= 0.5) return ["In the target range.", "var(--ok)"];
+  return ["High: very stable, but it will follow a tilted path more closely.", "var(--warn)"];
+}
+function verdictSnag(r){
+  if (r < 1.0) return ["The fin tips sweep through the payload.", "var(--bad)"];
+  if (r < 1.3) return ["Marginal: lines may still reach the fins.", "var(--warn)"];
+  return ["Clear: the payload starts outside the fin sweep.", "var(--ok)"];
+}
+function update(){
+  const res = compute(P);
+  const lo = compute(P, 0), hi = compute(P, 1);
+
+  document.getElementById("mVal").textContent = res.margin.toFixed(2);
+  const [mt, mc] = verdictMargin(res.margin);
+  const mv = document.getElementById("mVerdict"); mv.textContent = mt; mv.style.color = mc;
+  const mBar = document.getElementById("mBar");
+  mBar.querySelector(".marker").style.left = pct(res.margin, M_LO, M_HI) + "%";
+  const bl = pct(Math.min(lo.margin, hi.margin), M_LO, M_HI), bh = pct(Math.max(lo.margin, hi.margin), M_LO, M_HI);
+  const band = mBar.querySelector(".band"); band.style.left = bl + "%"; band.style.width = Math.max(bh - bl, 0.5) + "%";
+  document.getElementById("mRange").textContent =
+    `Shaded band: ${Math.min(lo.margin, hi.margin).toFixed(2)} to ${Math.max(lo.margin, hi.margin).toFixed(2)} calibers for a cap factor from 0 to 1. Margin in length: ${res.marginMm.toFixed(0)} mm.`;
+
+  document.getElementById("sVal").textContent = res.ratio.toFixed(2);
+  const [st, sc] = verdictSnag(res.ratio);
+  const sv = document.getElementById("sVerdict"); sv.textContent = st; sv.style.color = sc;
+  document.getElementById("sBar").querySelector(".marker").style.left = pct(res.ratio, S_LO, S_HI) + "%";
+  document.getElementById("sBar").querySelector(".band").style.display = "none";
+
+  const rows = [
+    ["CG from cap front", res.cg.toFixed(0) + " mm"],
+    ["CP from cap front", res.cp.toFixed(0) + " mm"],
+    ["Total mass", res.mass.toFixed(0) + " g"],
+    ["Fin can mass", res.mFinCan.toFixed(1) + " g"],
+    ["Boom mass", res.mBoom.toFixed(1) + " g"],
+    ["Length, ball tip to opening", (res.length/10).toFixed(1) + " cm"],
+    ["Fin tip distance from CG", res.dF.toFixed(0) + " mm"],
+    ["Payload distance from CG", res.dP.toFixed(0) + " mm"]
+  ];
+  document.getElementById("stats").innerHTML = rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("");
+
+  const warn = [];
+  if (P.teAbove < 50) warn.push("Fin trailing edge is less than 50 mm above the opening. This breaks rule 3.e.");
+  if (res.finTipTE > res.xOpen - 50) warn.push("A fin tip reaches into the 50 mm no-fin zone. This breaks rule 3.e.");
+  if (res.xTE > res.xOpen - P.shoulderStart + 0.01) warn.push("The fin can extends onto the bottle shoulder, so the collar will not sit on the straight section.");
+  if (res.xBase + P.adSkirt > res.xLE) warn.push("The adapter skirt overlaps the fin can.");
+  if (P.capSocket >= P.capLen - 3) warn.push("The cap socket is deeper than the cap allows.");
+  document.getElementById("warnings").innerHTML = warn.map(w => `<li>${w}</li>`).join("");
+
+  Object.keys(inputs).forEach(k => inputs[k].row.classList.toggle("changed", P[k] !== DEFAULTS[k]));
+  draw(res);
+  drawFin(res);
+}
+
+
+// ---------- fin drawing for CAD ----------
+const finSvg = document.getElementById("finSvg");
+function f1(v){ return (Math.round(v*10)/10).toString(); }
+function esc(t){ return String(t).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function finGeom(){
+  const Cr = P.Cr, Ct = P.Ct, sw = P.sweep, s = P.span;
+  return {Cr, Ct, sw, s, pts:[["A","Root, leading edge",0,0],["B","Tip, leading edge",sw,s],["C","Tip, trailing edge",sw+Ct,s],["D","Root, trailing edge",Cr,0]],
+          xmin:Math.min(0,sw), xmax:Math.max(Cr,sw+Ct), teOff:(sw+Ct)-Cr};
+}
+function drawFin(res){
+  const g = finGeom();
+  const W = finSvg.clientWidth || 720;
+  const H = Math.round(Math.min(Math.max(W*0.62, 320), 520));
+  const mL = 60, mR = 120, mT = 92, mB = 92;
+  const fw = Math.max(g.xmax - g.xmin, 1), fh = Math.max(g.s, 1);
+  const sc = Math.min((W - mL - mR)/fw, (H - mT - mB)/fh);
+  const off = mL + ((W - mL - mR) - fw*sc)/2;
+  const X = x => off + (x - g.xmin)*sc, Y = y => H - mB - y*sc;
+  const ink = "var(--ink)", soft = "var(--ink-soft)", line = "var(--line)";
+  const fs = 13;
+  let o = `<defs><marker id="dA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1 L10 5 L0 9 Z" fill="${soft}"/></marker></defs>`;
+  // bottle surface
+  o += `<line x1="${X(g.xmin)-30}" y1="${Y(0)}" x2="${X(g.xmax)+30}" y2="${Y(0)}" stroke="${soft}" stroke-width="3"/>`;
+  // fin
+  const poly = g.pts.map(p => `${X(p[2]).toFixed(1)},${Y(p[3]).toFixed(1)}`).join(" ");
+  o += `<polygon points="${poly}" fill="var(--fin-fill)" stroke="var(--ok)" stroke-width="2" stroke-linejoin="round"/>`;
+  // corner letters
+  const lp = {A:[-14,16],B:[-14,-8],C:[8,-8],D:[8,16]};
+  g.pts.forEach(p => { o += `<text x="${X(p[2])+lp[p[0]][0]}" y="${Y(p[3])+lp[p[0]][1]}" font-size="${fs}" font-weight="600" fill="var(--ok)">${p[0]}</text>`; });
+  function dimH(x1, x2, y, label, above){
+    if (Math.abs(x2 - x1) < 0.4) return "";
+    const a = Math.min(x1,x2), b = Math.max(x1,x2);
+    let t = `<line x1="${a}" y1="${y}" x2="${b}" y2="${y}" stroke="${soft}" stroke-width="1.2" marker-start="url(#dA)" marker-end="url(#dA)"/>`;
+    const tw = label.length * fs * 0.52;
+    const ty = above ? y - 7 : y + fs + 5;
+    if (b - a > tw + 8) t += `<text x="${(a+b)/2}" y="${ty}" font-size="${fs}" text-anchor="middle" fill="${ink}">${label}</text>`;
+    else t += `<text x="${a - 6}" y="${y + 4}" font-size="${fs}" text-anchor="end" fill="${ink}">${label}</text>`;
+    return t;
+  }
+  function ext(x, y1, y2){ return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${line}" stroke-width="1" stroke-dasharray="3 3"/>`; }
+  // root chord, below
+  const yRoot = Y(0) + 34;
+  o += ext(X(0), Y(0)+4, yRoot+4) + ext(X(g.Cr), Y(0)+4, yRoot+4);
+  o += dimH(X(0), X(g.Cr), yRoot, `Root chord ${f1(g.Cr)} mm`, false);
+  // tip chord, above
+  const yTip = Y(g.s) - 22;
+  o += ext(X(g.sw), Y(g.s)-4, yTip-4) + ext(X(g.sw+g.Ct), Y(g.s)-4, yTip-4);
+  o += dimH(X(g.sw), X(g.sw+g.Ct), yTip, `Tip chord ${f1(g.Ct)} mm`, true);
+  // sweep and trailing edge offset, higher
+  const ySw = Y(g.s) - 56;
+  if (Math.abs(g.sw) >= 0.5){
+    o += ext(X(0), Y(0)-4, ySw-4) + ext(X(g.sw), yTip-4, ySw-4);
+    o += dimH(X(0), X(g.sw), ySw, `Sweep ${f1(g.sw)} mm`, true);
+  }
+  if (Math.abs(g.teOff) >= 0.5){
+    const yTe = Math.abs(g.sw) >= 0.5 ? ySw - 26 : ySw;
+    o += ext(X(g.Cr), Y(0)-4, yTe-4) + ext(X(g.sw+g.Ct), yTip-4, yTe-4);
+    o += dimH(X(g.Cr), X(g.sw+g.Ct), yTe, `Trailing edge offset ${f1(g.teOff)} mm`, true);
+  }
+  // span, right
+  const xSp = X(g.xmax) + 28;
+  o += `<line x1="${X(g.xmax)+4}" y1="${Y(g.s)}" x2="${xSp+6}" y2="${Y(g.s)}" stroke="${line}" stroke-width="1" stroke-dasharray="3 3"/>`;
+  o += `<line x1="${xSp}" y1="${Y(0)}" x2="${xSp}" y2="${Y(g.s)}" stroke="${soft}" stroke-width="1.2" marker-start="url(#dA)" marker-end="url(#dA)"/>`;
+  o += `<text x="${xSp + 8}" y="${(Y(0)+Y(g.s))/2 + 4}" font-size="${fs}" fill="${ink}">Span</text>`;
+  o += `<text x="${xSp + 8}" y="${(Y(0)+Y(g.s))/2 + 4 + fs + 3}" font-size="${fs}" fill="${ink}">${f1(g.s)} mm</text>`;
+  // orientation
+  o += `<text x="${X(g.xmin)-30}" y="${H - 14}" font-size="${fs}" fill="${soft}">Nose side</text>`;
+  o += `<text x="${X(g.xmax)+30}" y="${H - 14}" font-size="${fs}" text-anchor="end" fill="${soft}">Opening side</text>`;
+  if (W >= 560) o += `<text x="${(X(g.xmin)+X(g.xmax))/2}" y="${H - 14}" font-size="${fs}" text-anchor="middle" fill="${soft}">Bottle surface (root edge)</text>`;
+  finSvg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  finSvg.innerHTML = o;
+
+  // table and facts
+  const rows = g.pts.map(p => `<tr><td><b>${p[0]}</b> ${p[1]}</td><td class="n">${f1(p[2])}</td><td class="n">${f1(p[3])}</td></tr>`).join("");
+  document.getElementById("finTable").innerHTML =
+    `<tr><th>Corner</th><th class="n">Along axis (mm)</th><th class="n">Out from bottle (mm)</th></tr>${rows}`;
+  const leAng = Math.atan2(g.sw, g.s) * 180/Math.PI;
+  const teAng = Math.atan2(g.teOff, g.s) * 180/Math.PI;
+  const area = (g.Cr + g.Ct)/2 * g.s;
+  const tipR = P.D/2 + g.s;
+  const facts = [
+    `x is measured from corner A toward the bottle opening; y is measured outward from the bottle surface.`,
+    `Leading edge angle: ${f1(leAng)}° from a line perpendicular to the bottle.`,
+    Math.abs(g.teOff) < 0.5 ? `Trailing edge: straight, perpendicular to the bottle.` : `Trailing edge angle: ${f1(teAng)}° from a line perpendicular to the bottle.`,
+    `Thickness ${f1(P.finT)} mm. Area ${f1(area/100)} cm² per fin, ${f1(P.N*area/100)} cm² for ${P.N} fins.`,
+    `Corner D is ${f1(P.teAbove)} mm above the bottle opening; corner A is ${f1(P.teAbove + g.Cr)} mm above it.`,
+    P.N === 4 ? `Fin tips are ${f1(tipR)} mm from the rocket axis, ${f1(2*tipR)} mm tip to tip.` : `Fin tips are ${f1(tipR)} mm from the rocket axis.`,
+    `For a slip-on fin can, add your sleeve clearance to the root. Rounding the tip corners (about 10 mm) helps keep shroud lines from catching.`
+  ];
+  document.getElementById("finFacts").innerHTML = facts.map(t => `<li>${t}</li>`).join("");
+  if (Math.abs(g.teOff) >= 0.5 && (g.sw + g.Ct) > g.Cr + 0.5) {
+    document.getElementById("finFacts").insertAdjacentHTML("beforeend",
+      `<li style="color:var(--bad)">The tip extends ${f1(g.teOff)} mm behind the root trailing edge, toward the no-fin zone.</li>`);
+  }
+}
+function finOutlineSVG(){
+  const g = finGeom();
+  const w = g.xmax - g.xmin, h = g.s;
+  const pts = g.pts.map(p => `${f1(p[2]-g.xmin)},${f1(h - p[3])}`).join(" ");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${f1(w)}mm" height="${f1(h)}mm" viewBox="0 0 ${f1(w)} ${f1(h)}">\n` +
+    `  <!-- One fin, 1:1 in millimetres. Bottom edge = root on the bottle surface; left = nose side. -->\n` +
+    `  <polygon points="${pts}" fill="none" stroke="#000000" stroke-width="0.2"/>\n</svg>\n`;
+}
+
+// ---------- saving and loading designs ----------
+let downloads = null;
+const exportBtn = document.getElementById("exportBtn"), finSvgBtn = document.getElementById("finSvgBtn");
+const dStatus = document.getElementById("designStatus"), fStatus = document.getElementById("finStatus");
+const nameEl = document.getElementById("designName");
+function setStatus(el, msg, err){ el.textContent = msg; el.classList.toggle("err", !!err); }
+const RANGES = {};
+GROUPS.forEach(g => g.items.forEach(([k,,min,max,step]) => { RANGES[k] = [min,max,step]; }));
+function slug(t){ return (t || "").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60) || "boom-rocket-design"; }
+function designObject(){
+  const r = compute(P);
+  return {
+    format: "boom-rocket-design", version: 1,
+    name: nameEl.value.trim() || "Untitled design",
+    savedAt: new Date().toISOString(),
+    settings: Object.assign({}, P),
+    summary: { cgMm: +r.cg.toFixed(1), cpMm: +r.cp.toFixed(1), marginCalibers: +r.margin.toFixed(3),
+               massG: +r.mass.toFixed(1), finClearance: +r.ratio.toFixed(3) }
+  };
+}
+async function saveFile(filename, data, statusEl){
+  if (!downloads){ setStatus(statusEl, "Saving files is not available in this view. Use the text option instead.", true); return; }
+  try {
+    await downloads.save({filename, data});
+    setStatus(statusEl, `Saved ${filename}.`);
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "declined") setStatus(statusEl, "Save cancelled.");
+    else if (code === "rate_limited") setStatus(statusEl, "A save prompt is already open. Try again in a moment.", true);
+    else { setStatus(statusEl, "Saving files is not available here. Use the text option instead.", true);
+           if (code === "unavailable" || code === "not_granted" || code === "capability_disabled" || code === "capability_removed") { downloads = null; refreshSaveUI(); } }
+  }
+}
+function refreshSaveUI(){
+  exportBtn.hidden = !downloads;
+  finSvgBtn.hidden = !downloads;
+}
+exportBtn.addEventListener("click", () => {
+  const d = designObject();
+  saveFile(slug(d.name) + ".json", JSON.stringify(d, null, 2), dStatus);
+});
+finSvgBtn.addEventListener("click", () => {
+  saveFile(slug(nameEl.value) + "-fin-outline.svg", finOutlineSVG(), fStatus);
+});
+function applyDesign(text){
+  let obj;
+  try { obj = JSON.parse(text); } catch (e) { setStatus(dStatus, "That is not valid JSON, so nothing was changed.", true); return false; }
+  if (!obj || typeof obj !== "object") { setStatus(dStatus, "That file does not contain design settings.", true); return false; }
+  const src = (obj.settings && typeof obj.settings === "object") ? obj.settings : obj;
+  const known = Object.keys(DEFAULTS).filter(k => k in src);
+  if (known.length === 0) { setStatus(dStatus, "No rocket settings were found in that file, so nothing was changed.", true); return false; }
+  const next = Object.assign({}, DEFAULTS);
+  let clamped = 0;
+  known.forEach(k => {
+    let v = Number(src[k]);
+    if (!isFinite(v)) return;
+    const [min, max] = RANGES[k] || [-Infinity, Infinity];
+    if (k === "N") v = v >= 3.5 ? 4 : 3;
+    const c = Math.min(max, Math.max(min, v));
+    if (c !== v) clamped++;
+    next[k] = c;
+  });
+  Object.assign(P, next);
+  if (typeof obj.name === "string" && obj.name.trim()) nameEl.value = obj.name.trim().slice(0, 80);
+  syncInputs(); update();
+  const missing = Object.keys(DEFAULTS).length - known.length;
+  let msg = `Loaded “${nameEl.value}”`;
+  if (typeof obj.savedAt === "string" && !isNaN(Date.parse(obj.savedAt))) msg += `, saved ${new Date(obj.savedAt).toLocaleDateString()}`;
+  msg += ".";
+  if (missing > 0) msg += ` ${missing} setting${missing > 1 ? "s were" : " was"} missing and now use${missing > 1 ? "" : "s"} the recommended value${missing > 1 ? "s" : ""}.`;
+  if (clamped > 0) msg += ` ${clamped} value${clamped > 1 ? "s were" : " was"} outside the slider range and ${clamped > 1 ? "were" : "was"} limited.`;
+  setStatus(dStatus, msg, false);
+  return true;
+}
+const fileEl = document.getElementById("loadFile");
+document.getElementById("loadBtn").addEventListener("click", () => fileEl.click());
+async function readFile(file){
+  if (!file) return;
+  try { applyDesign(await file.text()); }
+  catch (e) { setStatus(dStatus, "That file could not be read.", true); }
+}
+fileEl.addEventListener("change", () => { readFile(fileEl.files && fileEl.files[0]); fileEl.value = ""; });
+const panelEl = document.getElementById("designPanel");
+panelEl.addEventListener("dragover", e => { e.preventDefault(); panelEl.classList.add("dragover"); });
+panelEl.addEventListener("dragleave", () => panelEl.classList.remove("dragover"));
+panelEl.addEventListener("drop", e => {
+  e.preventDefault(); panelEl.classList.remove("dragover");
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  readFile(f);
+});
+const jsonText = document.getElementById("jsonText");
+document.getElementById("showJson").addEventListener("click", () => {
+  jsonText.value = JSON.stringify(designObject(), null, 2); jsonText.focus(); jsonText.select();
+  setStatus(dStatus, "Current settings are in the text box. Copy them and keep them somewhere safe.");
+});
+document.getElementById("loadJson").addEventListener("click", () => applyDesign(jsonText.value));
+
+(async () => {
+  try {
+    if (window.claude && typeof window.claude.use === "function") downloads = await window.claude.use("downloads");
+  } catch (e) { downloads = null; }
+  refreshSaveUI();
+  if (!downloads) document.getElementById("textOpt").open = true;
+})();
+
+syncInputs();
+update();
+if ("ResizeObserver" in window){
+  const ro = new ResizeObserver(() => update()); ro.observe(svg); ro.observe(finSvg);
+} else {
+  window.addEventListener("resize", update);
+}
+})();
+</script>
+</body>
+</html>
