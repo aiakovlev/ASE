@@ -53,9 +53,25 @@ button{
 button:hover{background:var(--ink);color:var(--paper)}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .layout{display:grid;gap:20px}
+/* Phones and narrow screens: one column, normal page scrolling.
+   The left wrapper dissolves so its parts can sit around the controls. */
+.left{display:contents}
+.left > .sheet{order:1}
+.left > .readouts{order:2}
+.left > .cpbreak{order:3}
+.layout > .controls{order:4}
+.left > .notes{order:5}
+.left > .fincad{order:6}
+/* Wide screens: two panes that scroll independently. */
 @media (min-width:1000px){
-  .layout{grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);align-items:start}
-  .left{position:sticky;top:calc(12px + env(safe-area-inset-top,0px))}
+  .wrap{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-bottom:16px}
+  header{flex:none}
+  .layout{flex:1;min-height:0;grid-template-columns:minmax(0,1.55fr) minmax(320px,1fr);align-items:stretch}
+  .left{display:block}
+  .left,.layout > .controls{min-height:0;overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .left{padding-right:10px}
+  .layout > .controls{padding-right:6px;align-content:start}
 }
 .sheet{
   background-color:var(--sheet);
@@ -72,6 +88,16 @@ button:hover{background:var(--ink);color:var(--paper)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .readouts{margin-top:16px;display:grid;gap:16px}
+.cpbreak{margin-top:16px}
+.cpbreak h2{font-size:1rem;font-weight:600;margin:0 0 4px}
+.cpbreak .small{margin:0 0 8px}
+#cpStrip{display:block;width:100%;height:auto;font-family:"Barlow Semi Condensed","Barlow",system-ui,sans-serif}
+.cptable{margin-top:10px}
+.cptable td.n,.cptable th.n{text-align:right}
+.cptable tr.total td{font-weight:600;border-bottom:none}
+.pnum{display:inline-grid;place-items:center;width:1.55em;height:1.55em;border-radius:50%;font-size:.8rem;font-weight:600;color:var(--sheet);margin-right:6px;vertical-align:middle}
+.pnum.pos{background:var(--ok)} .pnum.neg{background:var(--warn)}
+#cpFormula{margin-top:8px}
 .gauge h2,.stats h2{font-size:1rem;font-weight:600;margin:0 0 6px}
 .gauge .value{font-size:2rem;font-weight:600;line-height:1}
 .gauge .verdict{margin:4px 0 8px;font-weight:500}
@@ -120,7 +146,7 @@ summary{cursor:pointer;font-weight:600;padding:8px 0;font-size:1.05rem}
 .fincad h2{font-size:1.35rem;font-weight:600;margin:0 0 6px}
 .fincad .lead{color:var(--ink-soft);margin:0 0 12px;max-width:72ch}
 .fingrid{display:grid;gap:16px}
-@media (min-width:1000px){.fingrid{grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);align-items:start}}
+
 #finSvg{display:block;width:100%;height:auto;font-family:"Barlow Semi Condensed","Barlow",system-ui,sans-serif}
 .coords{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
 .coords th,.coords td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--grid-strong)}
@@ -153,6 +179,14 @@ summary{cursor:pointer;font-weight:600;padding:8px 0;font-size:1.05rem}
         </div>
       </section>
 
+      <section class="cpbreak" aria-label="Contribution of each part to the CP">
+        <h2>Where the CP comes from</h2>
+        <p class="small">Each arrow is one part's side force (CNα) at the place where it acts, on the same scale as the drawing. Up arrows pull the CP toward them; down arrows push it away. The CP is their balance point. Masses do not appear here, because they only move the CG.</p>
+        <div class="sheet"><svg id="cpStrip" role="img" aria-label="Side force of each part along the rocket and the resulting CP"></svg></div>
+        <table class="coords cptable" id="cpTable"></table>
+        <p class="small" id="cpFormula"></p>
+      </section>
+
       <section class="readouts">
         <div class="gauge">
           <h2>Stability margin</h2>
@@ -174,6 +208,26 @@ summary{cursor:pointer;font-weight:600;padding:8px 0;font-size:1.05rem}
           <dl class="num" id="stats"></dl>
         </div>
         <ul class="warnings" id="warnings" aria-live="polite"></ul>
+      </section>
+      <section class="notes">
+        <h2>How the numbers are calculated</h2>
+        <p>Distances are measured from the front rim of the cap toward the bottle opening. The CP uses the Barrowman method with the bottle diameter as the reference. The CG is the mass-weighted average of every part at the positions shown in the drawing.</p>
+        <p>Two effects are uncertain, so they have their own settings. The cap's tapered back and the bottle shoulder both produce a backward side force in theory, but the flow separates behind them, so the real force is smaller. A factor of 1 is full Barrowman, 0 ignores it. The margin range below the main value shows the result for a cap factor from 0 to 1.</p>
+        <p>Fin clearance compares the payload's distance from the CG with the distance of the farthest fin point from the CG. When the rocket flips about its CG at apogee, the fins sweep a circle of that radius. Above about 1.3 the payload starts clear of that circle.</p>
+        <p>Confirm the final design with a swing test, because these are estimates.</p>
+      </section>
+      <section class="fincad" aria-label="Fin shape for CAD">
+        <h2>Fin shape for CAD</h2>
+        <p class="lead">One fin, drawn from the current settings. The root edge sits on the bottle surface, the leading edge faces the nose. Corner coordinates are in the table, ready to type into a CAD sketch.</p>
+        <div class="fingrid">
+          <div class="sheet"><svg id="finSvg" role="img" aria-label="Dimensioned drawing of one fin"></svg></div>
+          <div>
+            <table class="coords" id="finTable"></table>
+            <ul class="facts" id="finFacts"></ul>
+            <div class="btnrow"><button type="button" id="finSvgBtn" hidden>Download fin outline (SVG, 1:1 in mm)</button><button type="button" id="finDxfBtn" hidden>Download fin outline (DXF)</button></div>
+            <p class="status" id="finStatus" aria-live="polite"></p>
+          </div>
+        </div>
       </section>
     </div>
 
@@ -200,26 +254,6 @@ summary{cursor:pointer;font-weight:600;padding:8px 0;font-size:1.05rem}
     </section>
   </div>
 
-  <section class="notes">
-    <h2>How the numbers are calculated</h2>
-    <p>Distances are measured from the front rim of the cap toward the bottle opening. The CP uses the Barrowman method with the bottle diameter as the reference. The CG is the mass-weighted average of every part at the positions shown in the drawing.</p>
-    <p>Two effects are uncertain, so they have their own settings. The cap's tapered back and the bottle shoulder both produce a backward side force in theory, but the flow separates behind them, so the real force is smaller. A factor of 1 is full Barrowman, 0 ignores it. The margin range below the main value shows the result for a cap factor from 0 to 1.</p>
-    <p>Fin clearance compares the payload's distance from the CG with the distance of the farthest fin point from the CG. When the rocket flips about its CG at apogee, the fins sweep a circle of that radius. Above about 1.3 the payload starts clear of that circle.</p>
-    <p>Confirm the final design with a swing test, because these are estimates.</p>
-  </section>
-  <section class="fincad" aria-label="Fin shape for CAD">
-    <h2>Fin shape for CAD</h2>
-    <p class="lead">One fin, drawn from the current settings. The root edge sits on the bottle surface, the leading edge faces the nose. Corner coordinates are in the table, ready to type into a CAD sketch.</p>
-    <div class="fingrid">
-      <div class="sheet"><svg id="finSvg" role="img" aria-label="Dimensioned drawing of one fin"></svg></div>
-      <div>
-        <table class="coords" id="finTable"></table>
-        <ul class="facts" id="finFacts"></ul>
-        <div class="btnrow"><button type="button" id="finSvgBtn" hidden>Download fin outline (SVG, 1:1 in mm)</button></div>
-        <p class="status" id="finStatus" aria-live="polite"></p>
-      </div>
-    </div>
-  </section>
 </div>
 
 <script>
@@ -296,6 +330,7 @@ function trans(d1, d2, x0, len, D, k){
   return [cn, x];
 }
 
+const PART_NAMES = ["Cap front","Cap tapered back","Cap to boom step","Boom to adapter step","Adapter cone","Skirt step","Bottle shoulder","Fins"];
 function compute(p, kCapOverride){
   const D = p.D, R = D/2, dSkirt = D + 2.9;
   const kCap = (kCapOverride === undefined) ? p.kCap : kCapOverride;
@@ -357,7 +392,8 @@ function compute(p, kCapOverride){
   const dP = cg - xBall;
 
   return {
-    cp, cg, cnSum, margin: (cp - cg)/D, marginMm: cp - cg, mass: m,
+    cp, cg, cnSum, mom, margin: (cp - cg)/D, marginMm: cp - cg, mass: m,
+    parts: parts.map((q, i) => ({name: PART_NAMES[i], cn: q[0], x: q[1]})),
     ratio: dP/dF, dF, dP, mFinCan: mSleeve + mFins, mBoom,
     xBall, tailStart, xA, xBase, xOpen, xTE, xLE, dSkirt, R,
     length: xOpen - (xBall - 20), finTipTE: xLE + Xr + Ct
@@ -558,9 +594,66 @@ function update(){
 
   Object.keys(inputs).forEach(k => inputs[k].row.classList.toggle("changed", P[k] !== DEFAULTS[k]));
   draw(res);
+  drawCP(res);
   drawFin(res);
 }
 
+
+
+// ---------- CP breakdown ----------
+const cpStrip = document.getElementById("cpStrip");
+function drawCP(res){
+  const parts = res.parts;
+  const x0 = res.xBall - 45, x1 = res.xOpen + 25, w = x1 - x0;   // same horizontal scale as the main drawing
+  const px = cpStrip.clientWidth || 600, k = w / px;
+  const maxPos = Math.max(0.01, ...parts.filter(q => q.cn > 0).map(q => q.cn));
+  const maxNeg = Math.max(0.01, ...parts.filter(q => q.cn < 0).map(q => -q.cn));
+  // one scale for both directions; split the height in proportion so the longest arrows fill it
+  const H = 220 * k, topPad = 34 * k, botPad = 50 * k;
+  const usable = H - topPad - botPad;
+  const upSpace = usable * maxPos / (maxPos + maxNeg), dnSpace = usable - upSpace;
+  const yb = topPad + upSpace;
+  const sc = Math.min(upSpace / maxPos, dnSpace / maxNeg);
+  const sw = 2.4 * k, fs = 12 * k, r = 8 * k;
+  let o = `<defs>
+    <marker id="cpU" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 1 L10 5 L0 9 Z" fill="var(--ok)"/></marker>
+    <marker id="cpD" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 1 L10 5 L0 9 Z" fill="var(--warn)"/></marker></defs>`;
+  o += `<line x1="${x0}" y1="${yb}" x2="${x1}" y2="${yb}" stroke="var(--line)" stroke-width="${1.2*k}"/>`;
+  // CG and CP reference lines
+  o += `<line x1="${res.cg}" y1="${8*k}" x2="${res.cg}" y2="${H - 4*k}" stroke="var(--cg)" stroke-width="${1.2*k}" stroke-dasharray="${4*k} ${3*k}"/>`;
+  o += `<text x="${res.cg - 4*k}" y="${H - 7*k}" font-size="${fs}" font-weight="600" text-anchor="end" fill="var(--cg)">CG ${res.cg.toFixed(0)}</text>`;
+  o += `<line x1="${res.cp}" y1="${8*k}" x2="${res.cp}" y2="${H - 4*k}" stroke="var(--cp)" stroke-width="${1.6*k}" stroke-dasharray="${4*k} ${3*k}"/>`;
+  o += `<text x="${res.cp + 4*k}" y="${H - 7*k}" font-size="${fs}" font-weight="600" text-anchor="start" fill="var(--cp)">CP ${res.cp.toFixed(0)}</text>`;
+  // arrows and numbered labels (staggered when they crowd)
+  const lastX = {pos: -1e9, neg: -1e9}, lift = {pos: 0, neg: 0};
+  const order = parts.map((q, i) => ({...q, i})).sort((a, b) => a.x - b.x);
+  order.forEach(q => {
+    const pos = q.cn >= 0, side = pos ? "pos" : "neg";
+    const len = Math.max(Math.abs(q.cn) * sc, 6 * k);
+    const yt = pos ? yb - len : yb + len;
+    o += `<line x1="${q.x}" y1="${yb}" x2="${q.x}" y2="${yt}" stroke="${pos ? "var(--ok)" : "var(--warn)"}" stroke-width="${sw}" marker-end="url(#${pos ? "cpU" : "cpD"})"/>`;
+    if ((q.x - lastX[side]) / k < 20) lift[side] += 17 * k; else lift[side] = 0;
+    lastX[side] = q.x;
+    const cy = pos ? yt - 12*k - lift[side] : yt + 12*k + lift[side];
+    o += `<circle cx="${q.x}" cy="${cy}" r="${r}" fill="${pos ? "var(--ok)" : "var(--warn)"}"/>`;
+    o += `<text x="${q.x}" y="${cy + 4*k}" font-size="${fs*0.95}" font-weight="600" text-anchor="middle" fill="var(--sheet)">${q.i + 1}</text>`;
+  });
+  cpStrip.setAttribute("viewBox", `${x0} 0 ${w} ${H}`);
+  cpStrip.innerHTML = o;
+
+  // table
+  const fmt2 = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(2);
+  const fmt0 = v => (v >= 0 ? "" : "−") + Math.abs(v).toFixed(0);
+  const rows = parts.map((q, i) =>
+    `<tr><td><span class="pnum ${q.cn >= 0 ? "pos" : "neg"}">${i + 1}</span>${q.name}</td>` +
+    `<td class="n">${fmt2(q.cn)}</td><td class="n">${q.x.toFixed(0)}</td><td class="n">${fmt0(q.cn * q.x)}</td></tr>`).join("");
+  document.getElementById("cpTable").innerHTML =
+    `<tr><th>Part</th><th class="n">CNα</th><th class="n">At (mm)</th><th class="n">CNα × at</th></tr>${rows}` +
+    `<tr class="total"><td>Total</td><td class="n">${fmt2(res.cnSum)}</td><td></td><td class="n">${fmt0(res.mom)}</td></tr>`;
+  document.getElementById("cpFormula").textContent =
+    `CP = ${fmt0(res.mom)} ÷ ${res.cnSum.toFixed(2)} = ${res.cp.toFixed(0)} mm from the cap front. ` +
+    `The cap back uses factor ${P.kCap.toFixed(2)} and the shoulder uses factor ${P.kSh.toFixed(2)} from the aerodynamic assumptions.`;
+}
 
 // ---------- fin drawing for CAD ----------
 const finSvg = document.getElementById("finSvg");
@@ -649,6 +742,7 @@ function drawFin(res){
     `Thickness ${f1(P.finT)} mm. Area ${f1(area/100)} cm² per fin, ${f1(P.N*area/100)} cm² for ${P.N} fins.`,
     `Corner D is ${f1(P.teAbove)} mm above the bottle opening; corner A is ${f1(P.teAbove + g.Cr)} mm above it.`,
     P.N === 4 ? `Fin tips are ${f1(tipR)} mm from the rocket axis, ${f1(2*tipR)} mm tip to tip.` : `Fin tips are ${f1(tipR)} mm from the rocket axis.`,
+    `In the DXF file, corner A is at the origin, x runs toward the opening and y outward from the bottle, in millimetres.`,
     `For a slip-on fin can, add your sleeve clearance to the root. Rounding the tip corners (about 10 mm) helps keep shroud lines from catching.`
   ];
   document.getElementById("finFacts").innerHTML = facts.map(t => `<li>${t}</li>`).join("");
@@ -667,9 +761,60 @@ function finOutlineSVG(){
     `  <polygon points="${pts}" fill="none" stroke="#000000" stroke-width="0.2"/>\n</svg>\n`;
 }
 
+
+function finOutlineDXF(){
+  // Minimal ASCII DXF (R12) with four LINE entities, millimetres, corner A at the origin.
+  const g = finGeom();
+  const P4 = g.pts.map(p => [p[2], p[3]]);
+  const n = v => (Math.round(v*1000)/1000).toFixed(3);
+  const out = ["0","SECTION","2","HEADER",
+               "9","$ACADVER","1","AC1009",
+               "9","$INSUNITS","70","4",
+               "9","$MEASUREMENT","70","1",
+               "0","ENDSEC",
+               "0","SECTION","2","ENTITIES"];
+  for (let i = 0; i < 4; i++){
+    const a = P4[i], b = P4[(i + 1) % 4];
+    if (Math.hypot(b[0]-a[0], b[1]-a[1]) < 1e-6) continue;   // skip zero-length edge (tip chord 0)
+    out.push("0","LINE","8","FIN","10",n(a[0]),"20",n(a[1]),"30","0.000","11",n(b[0]),"21",n(b[1]),"31","0.000");
+  }
+  out.push("0","ENDSEC","0","EOF");
+  return out.join("\r\n") + "\r\n";
+}
+let CRC_TABLE = null;
+function crc32(bytes){
+  if (!CRC_TABLE){
+    CRC_TABLE = new Uint32Array(256);
+    for (let i = 0; i < 256; i++){ let c = i; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRC_TABLE[i] = c >>> 0; }
+  }
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function zipOneFile(name, text){
+  // A .zip with one stored (uncompressed) file.
+  const data = new TextEncoder().encode(text), nm = new TextEncoder().encode(name);
+  const crc = crc32(data), d = new Date();
+  const time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  const lh = 30 + nm.length, ch = 46 + nm.length;
+  const buf = new Uint8Array(lh + data.length + ch + 22), v = new DataView(buf.buffer);
+  let o = 0;
+  const u32 = x => { v.setUint32(o, x, true); o += 4; }, u16 = x => { v.setUint16(o, x, true); o += 2; };
+  u32(0x04034b50); u16(20); u16(0); u16(0); u16(time); u16(date); u32(crc); u32(data.length); u32(data.length); u16(nm.length); u16(0);
+  buf.set(nm, o); o += nm.length; buf.set(data, o); o += data.length;
+  const cdStart = o;
+  u32(0x02014b50); u16(20); u16(20); u16(0); u16(0); u16(time); u16(date); u32(crc); u32(data.length); u32(data.length);
+  u16(nm.length); u16(0); u16(0); u16(0); u16(0); u32(0); u32(0);
+  buf.set(nm, o); o += nm.length;
+  const cdSize = o - cdStart;
+  u32(0x06054b50); u16(0); u16(0); u16(1); u16(1); u32(cdSize); u32(cdStart); u16(0);
+  return buf;
+}
+
 // ---------- saving and loading designs ----------
 let downloads = null;
-const exportBtn = document.getElementById("exportBtn"), finSvgBtn = document.getElementById("finSvgBtn");
+const exportBtn = document.getElementById("exportBtn"), finSvgBtn = document.getElementById("finSvgBtn"), finDxfBtn = document.getElementById("finDxfBtn");
 const dStatus = document.getElementById("designStatus"), fStatus = document.getElementById("finStatus");
 const nameEl = document.getElementById("designName");
 function setStatus(el, msg, err){ el.textContent = msg; el.classList.toggle("err", !!err); }
@@ -687,26 +832,59 @@ function designObject(){
                massG: +r.mass.toFixed(1), finClearance: +r.ratio.toFixed(3) }
   };
 }
-async function saveFile(filename, data, statusEl){
-  if (!downloads){ setStatus(statusEl, "Saving files is not available in this view. Use the text option instead.", true); return; }
+// Inside Claude, files are offered through the downloads capability (the viewer confirms each save).
+// In a standalone copy of this page there is no window.claude, so the browser downloads the file directly.
+let saveMode = null; // "capability" | "native"
+function nativeDownload(filename, data){
+  const type = filename.endsWith(".svg") ? "image/svg+xml" : filename.endsWith(".dxf") ? "application/dxf"
+             : filename.endsWith(".zip") ? "application/zip" : "application/json";
+  const url = URL.createObjectURL(new Blob([data], {type}));
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.style.display = "none";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+async function saveFile(filename, data, statusEl, hint){
+  if (saveMode === "capability" && downloads){
+    try {
+      await downloads.save({filename, data});
+      setStatus(statusEl, `Saved ${filename}.` + (hint ? " " + hint : ""));
+    } catch (e) {
+      const code = e && e.code;
+      if (code === "declined") setStatus(statusEl, "Save cancelled.");
+      else if (code === "rate_limited") setStatus(statusEl, "A save prompt is already open. Try again in a moment.", true);
+      else { setStatus(statusEl, "Saving files is not available here. Use the text option instead.", true);
+             if (code === "unavailable" || code === "not_granted" || code === "capability_disabled" || code === "capability_removed") { downloads = null; document.getElementById("textOpt").open = true; } }
+    }
+    return;
+  }
   try {
-    await downloads.save({filename, data});
-    setStatus(statusEl, `Saved ${filename}.`);
+    nativeDownload(filename, data);
+    setStatus(statusEl, insideClaude
+      ? `Download started: ${filename}. If no file appears, use the text option instead.`
+      : `Download started: ${filename}.` + (hint ? " " + hint : ""));
   } catch (e) {
-    const code = e && e.code;
-    if (code === "declined") setStatus(statusEl, "Save cancelled.");
-    else if (code === "rate_limited") setStatus(statusEl, "A save prompt is already open. Try again in a moment.", true);
-    else { setStatus(statusEl, "Saving files is not available here. Use the text option instead.", true);
-           if (code === "unavailable" || code === "not_granted" || code === "capability_disabled" || code === "capability_removed") { downloads = null; refreshSaveUI(); } }
+    setStatus(statusEl, "Downloading is not available here. Use the text option instead.", true);
   }
 }
 function refreshSaveUI(){
-  exportBtn.hidden = !downloads;
-  finSvgBtn.hidden = !downloads;
+  exportBtn.hidden = !saveMode;
+  finSvgBtn.hidden = !saveMode;
+  finDxfBtn.hidden = !saveMode;
+  finDxfBtn.textContent = saveMode === "capability" ? "Download fin outline (DXF in a .zip)" : "Download fin outline (DXF)";
 }
 exportBtn.addEventListener("click", () => {
   const d = designObject();
   saveFile(slug(d.name) + ".json", JSON.stringify(d, null, 2), dStatus);
+});
+finDxfBtn.addEventListener("click", () => {
+  const base = slug(nameEl.value) + "-fin-outline";
+  if (saveMode === "capability"){
+    // Saving inside Claude allows only certain file types, and .dxf is not one of them, so the DXF goes inside a .zip.
+    saveFile(base + "-dxf.zip", zipOneFile(base + ".dxf", finOutlineDXF()), fStatus, "Unzip it and import the .dxf file.");
+  } else {
+    saveFile(base + ".dxf", finOutlineDXF(), fStatus);
+  }
 });
 finSvgBtn.addEventListener("click", () => {
   saveFile(slug(nameEl.value) + "-fin-outline.svg", finOutlineSVG(), fStatus);
@@ -764,18 +942,21 @@ document.getElementById("showJson").addEventListener("click", () => {
 });
 document.getElementById("loadJson").addEventListener("click", () => applyDesign(jsonText.value));
 
-(async () => {
-  try {
-    if (window.claude && typeof window.claude.use === "function") downloads = await window.claude.use("downloads");
-  } catch (e) { downloads = null; }
-  refreshSaveUI();
-  if (!downloads) document.getElementById("textOpt").open = true;
-})();
+const insideClaude = !!(window.claude && typeof window.claude.use === "function");
+if (!insideClaude) { saveMode = "native"; refreshSaveUI(); }
+else {
+  (async () => {
+    try { downloads = await window.claude.use("downloads"); } catch (e) { downloads = null; }
+    saveMode = downloads ? "capability" : "native";
+    refreshSaveUI();
+    if (!downloads) document.getElementById("textOpt").open = true;
+  })();
+}
 
 syncInputs();
 update();
 if ("ResizeObserver" in window){
-  const ro = new ResizeObserver(() => update()); ro.observe(svg); ro.observe(finSvg);
+  const ro = new ResizeObserver(() => update()); ro.observe(svg); ro.observe(finSvg); ro.observe(cpStrip);
 } else {
   window.addEventListener("resize", update);
 }
